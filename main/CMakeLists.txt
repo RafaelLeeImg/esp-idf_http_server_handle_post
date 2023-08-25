@@ -1,5 +1,6 @@
-idf_component_register(SRCS "main.c" "mount.c" "file_server.c"
-                    INCLUDE_DIRS ".")
+idf_component_register(SRCS "main.c" "file_server.c" "mount.c"
+                    INCLUDE_DIRS "."
+                    EMBED_FILES "favicon.ico" "upload_script.html")
 
 # Create a SPIFFS image from the contents of the 'spiffs_image' directory
 # that fits the partition named 'storage'. FLASH_IN_PROJECT indicates that
