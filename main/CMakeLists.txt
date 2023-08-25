@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c"
+idf_component_register(SRCS "main.c" "mount.c" "file_server.c"
                     INCLUDE_DIRS ".")
 
 # Create a SPIFFS image from the contents of the 'spiffs_image' directory

@@ -1,82 +1,50 @@
-#include <esp_event_loop.h>
-#include <esp_http_server.h>
-#include <esp_log.h>
-#include <esp_spiffs.h>
-#include <esp_system.h>
-#include <esp_wifi.h>
-#include <nvs_flash.h>
-#include <stdio.h>
-#include <string.h>
+/*
+ * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
+/* HTTP File Server Example
 
-#define TAG "HTTP_SERVER"
+   This example code is in the Public Domain (or CC0 licensed, at your option.)
 
-// Function to handle serving the index.html file
-esp_err_t index_handler(httpd_req_t *req) {
-    FILE *indexFile = fopen("/spiffs/index.html", "r");
-    if (indexFile == NULL) {
-        ESP_LOGE(TAG, "Failed to open index.html file");
-        return ESP_FAIL;
-    }
+   Unless required by applicable law or agreed to in writing, this
+   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+   CONDITIONS OF ANY KIND, either express or implied.
+*/
 
-    char line[256];
-    while (fgets(line, sizeof(line), indexFile)) {
-        if (httpd_resp_sendstr_chunk(req, line) != ESP_OK) {
-            fclose(indexFile);
-            ESP_LOGE(TAG, "Error sending data");
-            return ESP_FAIL;
-        }
-    }
-    fclose(indexFile);
-    httpd_resp_sendstr_chunk(req, NULL); // End response
-    return ESP_OK;
-}
+#include "esp_event.h"
+#include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_err.h"
+#include "nvs_flash.h"
+#include "protocol_examples_common.h"
+#include "file_serving_example_common.h"
 
-// HTTP server event handler
-esp_err_t http_event_handler(httpd_req_t *req) {
-    switch (req->event_id) {
-    case HTTP_EVENT_ON_REQUEST:
-        if (strcmp(req->uri, "/") == 0) {
-            return index_handler(req);
-        }
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
+/* This example demonstrates how to create file server
+ * using esp_http_server. This file has only startup code.
+ * Look in file_server.c for the implementation.
+ */
 
-// Initialize SPIFFS
-void init_spiffs() {
-    esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/spiffs", .partition_label = NULL, .max_files = 5, .format_if_mount_failed = true};
+static const char *TAG = "example";
 
-    ESP_ERROR_CHECK(esp_vfs_spiffs_register(&conf));
-    size_t total, used;
-    ESP_ERROR_CHECK(esp_spiffs_info(NULL, &total, &used));
-    printf("SPIFFS Info - Total: %d, Used: %d\n", total, used);
-}
-
-// Initialize the HTTP server
-void start_http_server() {
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    httpd_handle_t server = NULL;
-
-    // Start the server
-    ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
-    ESP_ERROR_CHECK(httpd_start(&server, &config));
-
-    // Register URI handlers
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &index_handler));
-}
-
-// Main application
-void app_main() {
-    // Initialize NVS
+void app_main(void)
+{
+    ESP_LOGI(TAG, "Starting example");
     ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Initialize SPIFFS
-    init_spiffs();
+    /* Initialize file storage */
+    const char* base_path = "/data";
+    ESP_ERROR_CHECK(example_mount_storage(base_path));
 
-    // Start the HTTP server
-    start_http_server();
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
+    ESP_ERROR_CHECK(example_connect());
+
+    /* Start the file server */
+    ESP_ERROR_CHECK(example_start_file_server(base_path));
+    ESP_LOGI(TAG, "File server started");
 }
